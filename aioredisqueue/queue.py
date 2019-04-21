@@ -1,4 +1,5 @@
 import asyncio
+import timeit
 
 from . import task, load_scripts, exceptions
 
@@ -10,9 +11,11 @@ class Queue(object):
                  fetching_fifo_key=None,
                  payloads_hash_key=None,
                  ack_hash_key=None,
+                 last_requeue_key=None,
                  task_class=task.Task,
                  lua_sha=None,
-                 loop=None):
+                 loop=None,
+                 requeue_interval=10000):
 
         if main_queue_key is None:
             main_queue_key = key_prefix + 'queue'
@@ -26,6 +29,9 @@ class Queue(object):
         if ack_hash_key is None:
             ack_hash_key = key_prefix + 'ack'
 
+        if last_requeue_key is None:
+            last_requeue_key = key_prefix + 'last_requeue'
+
         if loop is None:
             loop = asyncio.get_event_loop()
 
@@ -34,6 +40,7 @@ class Queue(object):
             'fifo': fetching_fifo_key,
             'payload': payloads_hash_key,
             'ack': ack_hash_key,
+            'last_requeue': last_requeue_key,
         }
 
         self._redis = redis
@@ -41,6 +48,9 @@ class Queue(object):
         self._task_class = task_class
         self._lua_sha = lua_sha if lua_sha is not None else {}
         self._locks = {}
+        self._requeue_interval = requeue_interval
+
+        self._loop.create_task(self._requeue_periodically())
 
     async def _load_scripts(self, primary):
 
@@ -160,12 +170,18 @@ class Queue(object):
             args=[task_id],
         )
 
-    async def _requeue(self, before=None):
+    async def _requeue(self, now, before=-1):
         if 'requeue' not in self._lua_sha:
             await self._load_scripts('requeue')
 
         return await self._redis.evalsha(
             self._lua_sha['requeue'],
-            keys=[self._keys['ack'], self._keys['queue']],
-            args=[before],
+            keys=[self._keys['ack'], self._keys['queue'], self._keys['last_requeue']],
+            args=[now, self._requeue_interval, before],
         )
+
+    async def _requeue_periodically(self):
+        while not self._redis.closed:
+            await asyncio.sleep(self._requeue_interval / 1000)
+            now = int(timeit.default_timer() * 1000)
+            await self._requeue(now, now - self._requeue_interval)
