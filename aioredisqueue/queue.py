@@ -170,18 +170,31 @@ class Queue(object):
             args=[task_id],
         )
 
-    async def _requeue(self, now, before=-1):
+    async def requeue(self, before=-1):
         if 'requeue' not in self._lua_sha:
             await self._load_scripts('requeue')
 
+        if 'check_requeue_timestamp' not in self._lua_sha:
+            await self._load_scripts('check_requeue_timestamp')
+
+        now = int(timeit.default_timer() * 1000)
+        results = await self._redis.evalsha(
+            self._lua_sha['check_requeue_timestamp'],
+            keys=[self._keys['last_requeue']],
+            args=[now, self._requeue_interval],
+        )
+        if results[0] == b'error':
+            return results
+
         return await self._redis.evalsha(
             self._lua_sha['requeue'],
-            keys=[self._keys['ack'], self._keys['queue'], self._keys['last_requeue']],
-            args=[now, self._requeue_interval, before],
+            keys=[self._keys['ack'], self._keys['queue']],
+            args=[before],
         )
 
     async def _requeue_periodically(self):
+        before = int(timeit.default_timer() * 1000)
         while not self._redis.closed:
             await asyncio.sleep(self._requeue_interval / 1000)
-            now = int(timeit.default_timer() * 1000)
-            await self._requeue(now, now - self._requeue_interval)
+            await self.requeue(before)
+            before += self._requeue_interval

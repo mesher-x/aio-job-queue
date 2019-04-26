@@ -16,7 +16,8 @@ async def test_requeue_method():
     assert ack_len >= 1
     await r.delete(q._keys['last_requeue'])
     now = int(timeit.default_timer() * 1000)
-    results = await q._requeue(now)
+    results = await q.requeue()
+    assert results[0] == b'ok'
     assert len(results[1]) == ack_len
     assert len(results[3]) == ack_len
     assert results[2][-1] == main_queue_len + ack_len
@@ -33,7 +34,7 @@ async def test_too_early():
 
     now = int(timeit.default_timer() * 1000)
     await r.set(q._keys['last_requeue'], now)
-    results = await q._requeue(now)
+    results = await q.requeue()
     assert results[0] == b'error'
 
     r.close()

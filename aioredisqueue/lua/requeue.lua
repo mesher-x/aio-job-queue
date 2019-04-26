@@ -1,21 +1,12 @@
 -- KEYS[1] ack table
 -- KEYS[2] main queue
--- KEYS[3] last requeue timestamp
--- ARGV[1] current timestamp
--- ARGV[2] requeue interval
--- ARGV[3] requeue jobs less than this numeric value
-
-local last_requeue = tonumber(redis.call('get', KEYS[3]))
-local now = tonumber(ARGV[1])
-if last_requeue ~= nil and now - last_requeue <= tonumber(ARGV[2]) then
-    return {'error'}
-end
+-- ARGV[1] requeue jobs less than this numeric value
 
 local job_id, v, r
 local results_hdel = {}
 local results_lpush = {}
 local results_keys = {}
-local min_val = tonumber(ARGV[3])
+local min_val = tonumber(ARGV[1])
 local kvs = redis.call('HGETALL', KEYS[1])
 
 for i = 1, #kvs, 2 do
@@ -34,7 +25,5 @@ for i = 1, #kvs, 2 do
         table.insert(results_keys, job_id)
     end
 end
-
-redis.call('set', KEYS[3], tostring(now))
 
 return {'ok', results_hdel, results_lpush, results_keys}

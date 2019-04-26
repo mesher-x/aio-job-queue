@@ -4,7 +4,7 @@ import pkg_resources
 
 
 __all__ = ('load_put', 'load_ack', 'load_fail', 'load_requeue',
-           'load_get_nowait', 'load_get_nowait_l')
+           'load_get_nowait', 'load_get_nowait_l', 'load_check_requeue_timestamp')
 
 
 def _load(name):
@@ -39,3 +39,7 @@ def load_get_nowait():
 
 def load_get_nowait_l():
     return _load('get_nowait_l')
+
+
+def load_check_requeue_timestamp():
+    return _load('check_requeue_timestamp')
