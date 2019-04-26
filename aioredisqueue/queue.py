@@ -50,7 +50,8 @@ class Queue(object):
         self._locks = {}
         self._requeue_interval = requeue_interval
 
-        self._loop.create_task(self._requeue_periodically())
+        if self._requeue_interval != 0:
+            self._loop.create_task(self._requeue_periodically())
 
     async def _load_scripts(self, primary):
 
