@@ -14,8 +14,8 @@ class Queue(object):
                  last_requeue_key=None,
                  task_class=task.Task,
                  lua_sha=None,
-                 loop=None,
-                 requeue_interval=10000):
+                 requeue_interval=10000,
+                 loop=None):
 
         if main_queue_key is None:
             main_queue_key = key_prefix + 'queue'
