@@ -49,6 +49,7 @@ class Queue(object):
         self._lua_sha = lua_sha if lua_sha is not None else {}
         self._locks = {}
         self._requeue_interval = requeue_interval
+        self._requeueing_is_stopped = self._requeue_interval == 0
 
         if self._requeue_interval != 0:
             self._loop.create_task(self._requeue_periodically())
@@ -193,9 +194,13 @@ class Queue(object):
             args=[before],
         )
 
+    def stop_requeueing(self):
+        self._requeueing_is_stopped = True
+
     async def _requeue_periodically(self):
         before = int(timeit.default_timer() * 1000)
-        while not self._redis.closed:
+        while (not self._redis.closed and self._loop.is_running()
+               and not self._requeueing_is_stopped):
             await asyncio.sleep(self._requeue_interval / 1000)
             await self.requeue(before)
             before += self._requeue_interval
