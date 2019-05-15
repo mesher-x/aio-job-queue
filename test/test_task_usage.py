@@ -1,5 +1,5 @@
-import pytest
 import asyncio
+import pytest
 import aioredis
 import aioredisqueue
 
