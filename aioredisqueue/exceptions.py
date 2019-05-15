@@ -4,3 +4,7 @@ class Full(Exception):
 
 class Empty(Exception):
     pass
+
+
+class Stopped(Exception):
+    pass

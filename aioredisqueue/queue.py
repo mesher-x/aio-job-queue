@@ -49,7 +49,7 @@ class Queue(object):
         self._lua_sha = lua_sha if lua_sha is not None else {}
         self._locks = {}
         self._requeue_interval = requeue_interval
-        self._requeueing_is_stopped = self._requeue_interval == 0
+        self._is_stopped = False
 
         if self._requeue_interval != 0:
             self._loop.create_task(self._requeue_periodically())
@@ -94,6 +94,9 @@ class Queue(object):
         )
 
     def put(self, task, method='lua'):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         task_id = self._task_class.generate_id()
         task_payload = self._task_class.format_payload(task)
 
@@ -119,6 +122,9 @@ class Queue(object):
             raise exceptions.Empty(result[0])
 
     async def get_nowait(self):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         ack_info = self._task_class.generate_ack_info()
 
         try:
@@ -129,6 +135,9 @@ class Queue(object):
         return await self._get_nowait(ack_info, 'get_nowait', 'queue')
 
     async def get(self, retry_interval=1):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         while self._loop.is_running():
             await self._redis.brpoplpush(self._keys['queue'],
                                          self._keys['fifo'],
@@ -157,12 +166,18 @@ class Queue(object):
         )
 
     def _ack(self, task_id, method='multi'):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         if method == 'multi':
             return self._ack_pipe(task_id)
         elif method == 'lua':
             return self._ack_lua(task_id)
 
     async def _fail(self, task_id):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         if 'fail' not in self._lua_sha:
             await self._load_scripts('fail')
 
@@ -173,6 +188,9 @@ class Queue(object):
         )
 
     async def requeue(self, before=-1):
+        if self._is_stopped:
+            raise exceptions.Stopped
+
         if 'requeue' not in self._lua_sha:
             await self._load_scripts('requeue')
 
@@ -194,13 +212,15 @@ class Queue(object):
             args=[before],
         )
 
-    def stop_requeueing(self):
-        self._requeueing_is_stopped = True
+    def stop(self):
+        if self._is_stopped:
+            raise exceptions.Stopped
+        self._is_stopped = True
 
     async def _requeue_periodically(self):
         before = int(timeit.default_timer() * 1000)
         while (not self._redis.closed and self._loop.is_running()
-               and not self._requeueing_is_stopped):
+               and not self._is_stopped):
             await asyncio.sleep(self._requeue_interval / 1000)
             await self.requeue(before)
             before += self._requeue_interval
