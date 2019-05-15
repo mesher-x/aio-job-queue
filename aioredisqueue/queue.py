@@ -52,7 +52,10 @@ class Queue(object):
         self._is_stopped = False
 
         if self._requeue_interval != 0:
-            self._loop.create_task(self._requeue_periodically())
+            self._regular_requeue_task = \
+            self._loop.create_task(self._requeue_regularly())
+        else:
+            self._regular_requeue_task = None
 
     async def _load_scripts(self, primary):
 
@@ -215,9 +218,13 @@ class Queue(object):
     def stop(self):
         if self._is_stopped:
             raise exceptions.Stopped
+
+        if self._regular_requeue_task is not None:
+            self._regular_requeue_task.cancel()
+
         self._is_stopped = True
 
-    async def _requeue_periodically(self):
+    async def _requeue_regularly(self):
         before = int(timeit.default_timer() * 1000)
         while (not self._redis.closed and self._loop.is_running()
                and not self._is_stopped):

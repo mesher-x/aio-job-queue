@@ -14,6 +14,10 @@ async def test_basic_put_get_and_get():
 	result = await queue.get()
 	assert result.payload == message
 
+	queue.stop()
+	r.close()
+	await r.wait_closed()
+
 	
 async def get_ack(queue):
 	task = await queue.get()
@@ -43,6 +47,11 @@ async def test_ack():
 	await get_ack(queue)
 
 
+	queue.stop()
+	r.close()
+	await r.wait_closed()
+
+
 @pytest.mark.asyncio
 async def test_fail_ack():
 	r = await aioredis.create_redis(('localhost', 6379), db=0)
@@ -51,3 +60,7 @@ async def test_fail_ack():
 	message = b'payload'
 	await queue.put(message)
 	await get_fail_ack(queue)
+
+	queue.stop()
+	r.close()
+	await r.wait_closed()

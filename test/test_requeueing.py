@@ -23,6 +23,7 @@ async def test_requeue_method():
     assert results[2][-1] == main_queue_len + ack_len
     assert int(await redis.get(queue._keys['last_requeue'])) == now
 
+    queue.stop()
     redis.close()
     await redis.wait_closed()
 
@@ -37,6 +38,7 @@ async def test_too_early():
     results = await queue.requeue()
     assert results[0] == b'error'
 
+    queue.stop()
     redis.close()
     await redis.wait_closed()
 
@@ -60,5 +62,6 @@ async def test_in_background():
     await asyncio.sleep(requeue_interval / 1000)
     assert await redis.hget(queue._keys['ack'], task.id) is None
 
+    queue.stop()
     redis.close()
     await redis.wait_closed()
