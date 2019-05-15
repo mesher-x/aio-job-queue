@@ -47,6 +47,5 @@ performed during each such call.
   be renamed into `put_nowait`.
 - `get_multi` and `put_multi` methods, allowing getting and putting multiple
   items from queue with one call
-- method for periodical requeueing of not acknowledged tasks
 - keeping track of times a task was requeued, dropping too old tasks or tasks
   with too many retries.
